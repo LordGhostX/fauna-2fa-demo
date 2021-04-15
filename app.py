@@ -35,5 +35,10 @@ def logout():
     return "Logout Page!"
 
 
+@app.route("/auth-success/")
+def auth_success():
+    return "<h1>Successfully authenticated account using Fauna and PyOTP!</h1>"
+
+
 if __name__ == "__main__":
     app.run(debug=True)
