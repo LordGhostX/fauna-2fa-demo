@@ -17,7 +17,7 @@ def register():
 
 @app.route("/login/")
 def login():
-    return "Login Page!"
+    return render_template("login.html")
 
 
 if __name__ == "__main__":
