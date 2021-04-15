@@ -25,5 +25,15 @@ def enroll_2fa():
     return render_template("enroll_2fa.html")
 
 
+@app.route("/2fa/verify/")
+def verify_2fa():
+    return render_template("verify_2fa.html")
+
+
+@app.route("/logout/")
+def logout():
+    return "Logout Page!"
+
+
 if __name__ == "__main__":
     app.run(debug=True)
