@@ -137,6 +137,7 @@ def enroll_2fa():
 
     if request.method == "POST":
         otp = int(request.form.get("otp"))
+
         if pyotp.TOTP(secret_key).verify(otp):
             user_details["data"]["auth_enrolled"] = True
             client.query(
@@ -155,10 +156,22 @@ def enroll_2fa():
     return render_template("enroll_2fa.html", secret=secret_key)
 
 
-@app.route("/2fa/verify/")
+@app.route("/2fa/verify/", methods=["GET", "POST"])
 @login_required
 @auth_enrolled
 def verify_2fa():
+    if request.method == "POST":
+        otp = int(request.form.get("otp"))
+
+        user_details = get_user_details(session["user_secret"])
+        secret_key = user_details["data"]["auth_secret"]
+
+        if pyotp.TOTP(secret_key).verify(otp):
+            session["verify_2fa"] = True
+            return redirect(url_for("auth_success"))
+        else:
+            flash("The OTP provided is invalid, it has either expired or was generated using a wrong SECRET!", "danger")
+            return redirect(url_for("verify_2fa"))
     return render_template("verify_2fa.html")
 
 
