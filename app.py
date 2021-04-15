@@ -68,6 +68,26 @@ def auth_not_enrolled(f):
     return decorated
 
 
+def auth_verified(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("verify_2fa"):
+            return redirect(url_for("verify_2fa"))
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def auth_not_verified(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get("verify_2fa"):
+            return redirect(url_for("auth_success"))
+        return f(*args, **kwargs)
+
+    return decorated
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -159,6 +179,7 @@ def enroll_2fa():
 @app.route("/2fa/verify/", methods=["GET", "POST"])
 @login_required
 @auth_enrolled
+@auth_not_verified
 def verify_2fa():
     if request.method == "POST":
         otp = int(request.form.get("otp"))
@@ -186,6 +207,7 @@ def logout():
 
 
 @app.route("/auth-success/")
+@auth_verified
 def auth_success():
     return "<h1>Successfully authenticated account using Fauna and PyOTP!</h1>"
 
