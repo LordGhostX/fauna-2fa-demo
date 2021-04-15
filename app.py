@@ -164,7 +164,12 @@ def verify_2fa():
 
 @app.route("/logout/")
 def logout():
-    return "Logout Page!"
+    user_client = FaunaClient(secret=session["user_secret"])
+    result = user_client.query(
+        q.logout(True)
+    )
+    session.clear()
+    return redirect(url_for("index"))
 
 
 @app.route("/auth-success/")
