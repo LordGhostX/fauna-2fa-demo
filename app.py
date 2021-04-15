@@ -1,14 +1,54 @@
+from functools import wraps
 from flask import *
 from flask_bootstrap import Bootstrap
 from faunadb import query as q
 from faunadb.objects import Ref
 from faunadb.client import FaunaClient
-from faunadb.errors import BadRequest
+from faunadb.errors import BadRequest, Unauthorized
 
 app = Flask(__name__)
 Bootstrap(app)
 app.config["SECRET_KEY"] = "APP_SECRET_KEY"
 client = FaunaClient(secret="FAUNA_SECRET_KEY")
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_secret" in session:
+            try:
+                user_client = FaunaClient(secret=session["user_secret"])
+                result = user_client.query(
+                    q.current_identity()
+                )
+            except Unauthorized as e:
+                flash("Your login session has expired, please login again", "danger")
+                return redirect(url_for("login"))
+        else:
+            flash("You need to be logged in before you can access here", "danger")
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def auth_enrolled(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user_client = FaunaClient(secret=session["user_secret"])
+        user = user_client.query(
+            q.current_identity()
+        )
+        user_details = client.query(
+            q.get(
+                q.ref(q.collection("users"), user.id())
+            )
+        )
+        if not user_details["data"]["auth_enrolled"]:
+            return redirect(url_for("enroll_2fa"))
+        return f(*args, **kwargs)
+
+    return decorated
 
 
 @app.route("/")
@@ -27,7 +67,7 @@ def register():
                 q.create(
                     q.collection("users"), {
                         "credentials": {"password": password},
-                        "data": {"email": email}
+                        "data": {"email": email, "auth_enrolled": False}
                     }
                 )
             )
@@ -38,20 +78,44 @@ def register():
         flash(
             "You have successfully created your account, you can proceed to login!", "success")
         return redirect(url_for("login"))
+
     return render_template("register.html")
 
 
-@app.route("/login/")
+@app.route("/login/", methods=["GET", "POST"])
 def login():
+    if request.method == "POST":
+        email = request.form.get("email").strip().lower()
+        password = request.form.get("password")
+
+        try:
+            result = client.query(
+                q.login(
+                    q.match(q.index("users_by_email"), email), {
+                        "password": password}
+                )
+            )
+        except BadRequest as e:
+            flash(
+                "You have supplied invalid login credentials, please try again!", "danger")
+            return redirect(url_for("login"))
+
+        session["user_secret"] = result["secret"]
+        session["verified_2fa"] = False
+        return redirect(url_for("verify_2fa"))
+
     return render_template("login.html")
 
 
 @app.route("/2fa/enroll/")
+@login_required
 def enroll_2fa():
     return render_template("enroll_2fa.html")
 
 
 @app.route("/2fa/verify/")
+@login_required
+@auth_enrolled
 def verify_2fa():
     return render_template("verify_2fa.html")
 
