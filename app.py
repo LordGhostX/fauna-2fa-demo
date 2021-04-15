@@ -12,7 +12,12 @@ def index():
 
 @app.route("/register/")
 def register():
-    return "Register Page!"
+    return render_template("register.html")
+
+
+@app.route("/login/")
+def login():
+    return "Login Page!"
 
 
 if __name__ == "__main__":
