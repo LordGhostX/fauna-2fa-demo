@@ -1,4 +1,5 @@
 from functools import wraps
+import pyotp
 from flask import *
 from flask_bootstrap import Bootstrap
 from faunadb import query as q
@@ -12,6 +13,19 @@ app.config["SECRET_KEY"] = "APP_SECRET_KEY"
 client = FaunaClient(secret="FAUNA_SECRET_KEY")
 
 
+def get_user_details(user_secret):
+    user_client = FaunaClient(secret=user_secret)
+    user = user_client.query(
+        q.current_identity()
+    )
+    user_details = client.query(
+        q.get(
+            q.ref(q.collection("users"), user.id())
+        )
+    )
+    return user_details
+
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -22,10 +36,10 @@ def login_required(f):
                     q.current_identity()
                 )
             except Unauthorized as e:
-                flash("Your login session has expired, please login again", "danger")
+                flash("Your login session has expired, please login again!", "danger")
                 return redirect(url_for("login"))
         else:
-            flash("You need to be logged in before you can access here", "danger")
+            flash("You need to be logged in before you can access here!", "danger")
             return redirect(url_for("login"))
         return f(*args, **kwargs)
 
@@ -35,17 +49,20 @@ def login_required(f):
 def auth_enrolled(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        user_client = FaunaClient(secret=session["user_secret"])
-        user = user_client.query(
-            q.current_identity()
-        )
-        user_details = client.query(
-            q.get(
-                q.ref(q.collection("users"), user.id())
-            )
-        )
+        user_details = get_user_details(session["user_secret"])
         if not user_details["data"]["auth_enrolled"]:
             return redirect(url_for("enroll_2fa"))
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def auth_not_enrolled(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user_details = get_user_details(session["user_secret"])
+        if user_details["data"]["auth_enrolled"]:
+            return redirect(url_for("verify_2fa"))
         return f(*args, **kwargs)
 
     return decorated
@@ -67,7 +84,11 @@ def register():
                 q.create(
                     q.collection("users"), {
                         "credentials": {"password": password},
-                        "data": {"email": email, "auth_enrolled": False}
+                        "data": {
+                            "email": email,
+                            "auth_enrolled": False,
+                            "auth_secret": pyotp.random_base32()
+                        }
                     }
                 )
             )
@@ -107,10 +128,31 @@ def login():
     return render_template("login.html")
 
 
-@app.route("/2fa/enroll/")
+@app.route("/2fa/enroll/", methods=["GET", "POST"])
 @login_required
+@auth_not_enrolled
 def enroll_2fa():
-    return render_template("enroll_2fa.html")
+    user_details = get_user_details(session["user_secret"])
+    secret_key = user_details["data"]["auth_secret"]
+
+    if request.method == "POST":
+        otp = int(request.form.get("otp"))
+        if pyotp.TOTP(secret_key).verify(otp):
+            user_details["data"]["auth_enrolled"] = True
+            client.query(
+                q.update(
+                    q.ref(q.collection("users"), user_details["ref"].id()), {
+                        "data": user_details["data"]
+                    }
+                )
+            )
+            flash("You have successfully enrolled 2FA for your profile, please authenticate yourself once more!", "success")
+            return redirect(url_for("verify_2fa"))
+        else:
+            flash("The OTP provided is invalid, it has either expired or was generated using a wrong SECRET!", "danger")
+            return redirect(url_for("enroll_2fa"))
+
+    return render_template("enroll_2fa.html", secret=secret_key)
 
 
 @app.route("/2fa/verify/")

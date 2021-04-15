@@ -22,7 +22,7 @@
         </div>
         <div class="form-group">
           <label for="secret">SECRET KEY</label>
-          <input type="text" class="form-control" id="secret" value="SECRET KEY" readonly>
+          <input type="text" class="form-control" id="secret" value="{{ secret }}" readonly>
         </div>
         <div class="text-center">
           <button type="button" class="btn btn-success mb-3" onclick="copySecret()">Copy Secret Key</button>
@@ -42,7 +42,6 @@
       <form method="POST">
         <div class="form-group">
           <label for="otp">Enter Generated OTP</label>
-          <input type="hidden" name="secret" value="SECRET KEY" required>
           <input type="number" class="form-control" id="otp" name="otp" required>
         </div>
         <div class="text-center">
