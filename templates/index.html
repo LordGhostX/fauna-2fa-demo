@@ -1,0 +1,20 @@
+{% extends "bootstrap/base.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-12">
+      <div class="jumbotron text-center p-4">
+        <h2>Fauna Two-Factor Authentication (2FA) Demo</h2>
+      </div>
+    </div>
+    <div class="col-lg-9 text-center">
+      <h5>This is a Python + Flask demo application implementing two-factor authentication using Fauna's built-in authentication and PyOTP.</h5>
+    </div>
+    <div class="col-lg-5 text-center">
+      <a href="{{ url_for('register') }}" class="btn btn-success m-3">GET STARTED</a>
+      <img width="100%" src="{{ url_for('static', filename='home.jpg') }}">
+    </div>
+  </div>
+</div>
+{% endblock %}
