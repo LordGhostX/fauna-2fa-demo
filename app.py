@@ -20,5 +20,10 @@ def login():
     return render_template("login.html")
 
 
+@app.route("/2fa/enroll/")
+def enroll_2fa():
+    return render_template("enroll_2fa.html")
+
+
 if __name__ == "__main__":
     app.run(debug=True)
