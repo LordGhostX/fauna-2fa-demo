@@ -207,6 +207,7 @@ def logout():
 
 
 @app.route("/auth-success/")
+@login_required
 @auth_verified
 def auth_success():
     return "<h1>Successfully authenticated account using Fauna and PyOTP!</h1>"
