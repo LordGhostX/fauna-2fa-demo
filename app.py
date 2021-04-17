@@ -118,7 +118,7 @@ def register():
 
         flash(
             "You have successfully created your account, you can proceed to login!", "success")
-        return redirect(url_for("login"))
+        return redirect(url_for("register"))
 
     return render_template("register.html")
 
